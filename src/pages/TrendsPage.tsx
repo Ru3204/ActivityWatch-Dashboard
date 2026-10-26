@@ -13,16 +13,17 @@ export function TrendsPage() {
   const { host, refresh } = useOutletContext<DashboardOutletContext>();
   const { locale, t } = useLocale();
   const [days, setDays] = useState(30);
-  const query = useQuery({ queryKey: ["trends", days, host], queryFn: () => api.trends(days, host), enabled: Boolean(host) });
+  const query = useQuery({ queryKey: ["trends", days, host], queryFn: () => api.trends(days, host), enabled: Boolean(host), retry: false });
   const charts = useMemo(() => query.data ? {
     trend: trendOption(query.data.daily, locale),
     apps: rankingOption(query.data.apps, locale),
     categories: categoryTrendOption(query.data.daily, query.data.categories, locale),
     heatmap: heatmapOption(query.data.weekdayHours, locale),
   } : null, [locale, query.data]);
-  if (query.isLoading || !host) return <LoadingPage />;
-  if (query.isError) return <ErrorState title={t("activitywatchOffline")} description={t("activitywatchOfflineHint")} onRetry={refresh} />;
-  const data = query.data!;
+  if (query.isPending || !host) return <LoadingPage />;
+  if (query.isError) return <ErrorState title={t("activitywatchOffline")} description={query.error instanceof Error ? query.error.message : t("activitywatchOfflineHint")} onRetry={refresh} />;
+  if (!query.data || !charts) return <LoadingPage />;
+  const data = query.data;
   const activeTotal = data.daily.reduce((sum, day) => sum + day.activeSeconds, 0);
   return (
     <>

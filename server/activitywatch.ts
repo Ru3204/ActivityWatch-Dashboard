@@ -42,7 +42,9 @@ export class ActivityWatchClient {
       return await response.json() as T;
     } catch (error) {
       if (error instanceof ActivityWatchError) throw error;
-      throw new ActivityWatchError(error instanceof Error ? error.message : "Unable to reach ActivityWatch");
+      throw new ActivityWatchError(controller.signal.aborted
+        ? `ActivityWatch ${path} timed out after 10 seconds`
+        : `ActivityWatch ${path}: ${error instanceof Error ? error.message : "Unable to reach ActivityWatch"}`);
     } finally {
       clearTimeout(timeout);
     }
@@ -62,10 +64,19 @@ export class ActivityWatchClient {
   }
 
   async query<T>(query: string[], timeperiods: string[]): Promise<T[]> {
-    return this.request<T[]>("/api/0/query/", {
-      method: "POST",
-      body: JSON.stringify({ query, timeperiods }),
-    });
+    const results: T[] = [];
+    // Keep each upstream query small; AW executes every timeperiod in one request.
+    for (const period of timeperiods) {
+      const batch = await this.request<T[]>("/api/0/query/", {
+        method: "POST",
+        body: JSON.stringify({ query, timeperiods: [period] }),
+      });
+      if (!Array.isArray(batch) || batch.length !== 1) {
+        throw new ActivityWatchError("ActivityWatch query returned an incomplete result");
+      }
+      results.push(batch[0]);
+    }
+    return results;
   }
 
   async getEvents(bucketId: string, start: string, end: string) {
