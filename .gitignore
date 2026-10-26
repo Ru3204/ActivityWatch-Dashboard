@@ -1,0 +1,14 @@
+node_modules/
+.npm-cache/
+dist/
+dist-server/
+coverage/
+playwright-report/
+test-results/
+data/dashboard-config.json
+data/dashboard-config.json.bak
+data/dashboard-config.json.tmp
+data/category-learning.json
+data/startup.log
+.env
+*.log

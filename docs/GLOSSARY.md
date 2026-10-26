@@ -1,0 +1,25 @@
+# 工程术语表（用 Tempo 举例）
+
+- **DTO（Data Transfer Object）**：跨边界传输的数据形状，如 `PomodoroStateResponse`。它不是文件中的完整内部状态，目的是稳定通信契约。
+- **Schema**：运行时可验证的结构规则。`configSchema` 会拒绝远程 ActivityWatch URL、非法分钟数或错误 rule source；TypeScript 类型本身不能验证网络 JSON。
+- **Repository / Store**：隐藏数据读取和写入机制。`PomodoroStore` 提供状态文档，不决定 pause 合不合法。
+- **Service**：组织领域行为和规则。`PomodoroService` 决定状态转换、完成顺序和分析失败隔离。
+- **Adapter**：把外部接口转换成本项目可用形式。`ActivityWatchClient` 是 HTTP adapter，Express route 是入站 adapter。
+- **Cache**：可丢弃、可重新取得的副本。TanStack Query cache 不是番茄事实源；刷新后可从服务端重建。
+- **Revision**：单调递增的配置版本号。保存时携带旧 revision，可检测另一标签页已修改。
+- **Optimistic concurrency control**：先读取并编辑，保存时检查版本，而不是全程锁住文件。Tempo 的 409 revision conflict 就是简化实现。
+- **Idempotency（幂等）**：同一操作执行多次，最终效果与执行一次相同。`GET` 应幂等；`pause` 不是幂等命令，第二次返回 409。若支付/远程任务需要重试，通常会加 idempotency key。
+- **State machine（状态机）**：状态集合及合法转换。番茄的 Running 不能直接再次 start，Paused 才能 resume。
+- **Domain state（领域状态）**：业务认为真实且有含义的状态，如 active intervals；UI 中输入框是否聚焦不是领域状态。
+- **Dependency direction（依赖方向）**：谁知道谁。Service 可以依赖 Store 接口；通用 AtomicJsonFile 不应 import PomodoroPage。
+- **Migration（迁移）**：把持久化的旧 schema 转成当前 schema。它与“读取时临时兼容”不同，Tempo 会备份并写回 v3。
+- **Race condition（竞态）**：结果取决于两个操作的执行时序。例如两个首次读取同时创建 `pomodoro.json`；Store 用共享 load Promise 合并它们。
+- **Atomic write（原子写）**：观察者只会看到完整旧值或完整新值，不会看到半份文件。Tempo 用同目录临时文件和 rename。
+- **Transaction（事务）**：一组操作要么都成功要么都失败。单文件原子替换近似一个很小的事务，但不能保证配置和番茄两个文件一起提交。
+- **Invariant（不变量）**：任何合法状态都必须满足的规则，例如 Running 必须有 `endsAt` 和一个未关闭 interval。
+- **Reconciliation（协调/校准）**：根据持久化事实和当前时间修正状态。服务重启后发现 `endsAt` 已过，就补记自动完成。
+- **Polling（轮询）**：客户端定期读取状态。Tempo 每三秒校准，页面内部每秒只更新显示。
+- **SSE / WebSocket**：服务器推送或双向长连接方案。当轮询延迟/流量成为实际问题时再使用。
+- **Modular monolith（模块化单体）**：一个部署单元，内部有清晰模块边界。它不等于“所有代码混在一起”，也不是微服务之前必须淘汰的阶段。
+- **Technical debt（技术债）**：为了当前约束接受、未来可能要偿还的成本，例如 JSON 缺少复杂查询和跨进程锁。明确记录的债比无意识复杂度更可控。
+- **Observability（可观测性）**：从日志、指标、trace 理解运行状态。Tempo 只有最小 health 和启动日志；大型生产系统通常还需要结构化日志、指标和告警。
